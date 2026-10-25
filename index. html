@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXORA AI | Intelligent Decision Support</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+:root {
+  --bg: #080b16;
+  --panel: #111729;
+  --border: #252e46;
+  --text: #f4f7ff;
+  --muted: #9aa8c4;
+  --cyan: #53e5ff;
+  --purple: #9d7bff;
+  --green: #52e0a0;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
+}
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 245px;
+  padding: 28px 18px;
+  background: #0c1020;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo {
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--cyan);
+}
+.logo span { color: var(--purple); }
+.tagline {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 9px 0 35px;
+}
+.nav-btn {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 13px 14px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 9px;
+  margin: 5px 0;
+}
+.nav-btn:hover, .nav-btn.active {
+  background: #1b2540;
+  color: var(--cyan);
+}
+.main { flex: 1; min-width: 0; padding: 30px; }
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 28px;
+}
+h1 { margin: 0 0 8px; font-size: clamp(24px, 3vw, 34px); }
+h2 { font-size: 18px; margin-top: 0; }
+p { color: var(--muted); line-height: 1.6; }
+.badge {
+  border: 1px solid #245849;
+  color: var(--green);
+  background: #102a27;
+  border-radius: 30px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 22px;
+  min-width: 0;
+}
+.metric-label { color: var(--muted); font-size: 13px; }
+.metric {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 13px 0 6px;
+}
+.metric-note { color: var(--cyan); font-size: 12px; }
+.content-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.chart-box { height: 270px; position: relative; }
+.upload-area {
+  border: 1px dashed #53678e;
+  border-radius: 13px;
+  padding: 26px 16px;
+  text-align: center;
+  background: #10182a;
+}
+.upload-area input { max-width: 100%; margin-top: 15px; }
+.primary {
+  background: linear-gradient(100deg, #4adff5, #9a7bff);
+  color: #07101e;
+  font-weight: 800;
+  padding: 12px 17px;
+  border: 0;
+  border-radius: 9px;
+}
+.secondary {
+  background: #202a43;
+  color: var(--text);
+  padding: 11px 15px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; }
+.table-wrap { overflow: auto; max-height: 380px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th { color: var(--cyan); background: #151e33; position: sticky; top: 0; }
+.insight {
+  border-left: 3px solid var(--cyan);
+  background: #151e31;
+  border-radius: 6px;
+  padding: 13px 15px;
+  margin: 10px 0;
+  color: #dce6ff;
+  line-height: 1.6;
+}
+.section { display: none; }
+.section.active { display: block; }
+select, input[type="text"] {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0c1222;
+  color: var(--text);
+  max-width: 100%;
+}
+.small { font-size: 12px; color: var(--muted); }
+footer { padding: 22px 0; color: var(--muted); font-size: 12px; }
+.menu { display: none; }
+@media(max-width:1050px) {
+  .grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .content-grid { grid-template-columns: 1fr; }
+}
+@media(max-width:700px) {
+  .app { display: block; }
+  .sidebar { width: 100%; padding: 15px; }
+  .tagline { margin: 5px 0 12px; }
+  .nav { display: flex; overflow-x: auto; gap: 5px; }
+  .nav-btn { width: auto; white-space: nowrap; margin: 0; }
+  .main { padding: 18px 13px; }
+  .grid { gap: 10px; }
+  .card { padding: 15px; }
+  .metric { font-size: 23px; }
+  .badge { display: none; }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="logo">NEXORA<span> AI</span></div>
+  <div class="tagline">INTELLIGENT DECISION SUPPORT</div>
+
+  <nav class="nav">
+    <button class="nav-btn active" data-page="dashboard">◈ Dashboard</button>
+    <button class="nav-btn" data-page="analysis">▦ Data Analysis</button>
+    <button class="nav-btn" data-page="insights">✧ AI Insights</button>
+    <button class="nav-btn" data-page="prediction">⌁ Prediction Studio</button>
+    <button class="nav-btn" data-page="reports">▤ Reports</button>
+  </nav>
+
+  <p class="small" style="margin-top:35px">
+    DATA-DRIVEN DECISIONS<br>
+    <span style="color:var(--cyan)">● Local Demo Mode</span>
+  </p>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <div>
+      <h1 id="pageTitle">Intelligence Dashboard</h1>
+      <p id="pageSubtitle">Turn your data into meaningful decisions.</p>
+    </div>
+    <span class="badge">● SYSTEM READY</span>
+  </header>
+
+  <section id="dashboard" class="section active">
+    <div class="grid">
+      <div class="card">
+        <div class="metric-label">Total Records</div>
+        <div class="metric" id="recordsMetric">12</div>
+        <div class="metric-note">Dataset rows</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Total Features</div>
+        <div class="metric" id="featuresMetric">5</div>
+        <div class="metric-note">Dataset columns</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Missing Values</div>
+        <div class="metric" id="missingMetric">0</div>
+        <div class="metric-note">Data quality check</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Insights Generated</div>
+        <div class="metric" id="insightsMetric">3</div>
+        <div class="metric-note">Computed observations</div>
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <div class="card">
+        <h2>Dataset Overview</h2>
+        <p>Explore the distribution of your numerical data.</p>
+        <div class="chart-box"><canvas id="overviewChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Quick Data Import</h2>
+        <p>Upload your own CSV dataset to begin analyzing it.</p>
+        <div class="upload-area">
+          <div style="font-size:35px">⇧</div>
+          <strong>Upload your dataset</strong>
+          <p class="small">CSV files only · Maximum 5 MB</p>
+          <input type="file" id="csvFile" accept=".csv,text/csv">
+        </div>
+        <div id="uploadStatus" class="small" style="margin-top:12px"></div>
+        <div class="actions">
+          <button class="secondary" id="sampleBtn">Load Sample Data</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Latest Data Insights</h2>
+      <div id="dashboardInsights"></div>
+    </div>
+  </section>
+
+  <section id="analysis" class="section">
+    <div class="card">
+      <h2>Data Analysis Studio</h2>
+      <p>Review statistics calculated directly from your active dataset.</p>
+      <div class="actions">
+        <button class="primary" id="analyzeBtn">Analyze Dataset</button>
+        <button class="secondary" id="downloadCsvBtn">Export CSV</button>
+      </div>
+      <div id="analysisSummary"></div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <h2>Dataset Preview</h2>
+      <div class="table-wrap" id="dataTable"></div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <h2>Numerical Column Distribution</h2>
+      <label for="columnSelect">Select a column: </label>
+      <select id="columnSelect"></select>
+      <div class="chart-box" style="margin-top:20px">
+        <canvas id="columnChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section id="insights" class="section">
+    <div class="card">
+      <h2>Intelligent Insights</h2>
+      <p>These observations are generated from computed dataset statistics, not from an external AI model.</p>
+      <button class="primary" id="generateInsightsBtn">Generate Insights</button>
+      <div id="allInsights" style="margin-top:18px"></div>
+    </div>
+  </section>
+
+  <section id="prediction" class="section">
+    <div class="card">
+      <h2>Prediction Studio</h2>
+      <p>Explore a simple linear regression prediction using numerical data.</p>
+      <p class="small">This demo uses a least-squares calculation in your browser. It is not a trained Scikit-learn model.</p>
+      <label for="xColumn">Input feature (X)</label><br><br>
+      <select id="xColumn"></select><br><br>
+      <label for="yColumn">Target feature (Y)</label><br><br>
+      <select id="yColumn"></select><br><br>
+      <label for="predictValue">Input value for X</label><br><br>
+      <input type="number" id="predictValue" placeholder="Enter a number"><br><br>
+      <button class="primary" id="predictBtn">Calculate Prediction</button>
+      <div id="predictionResult" style="margin-top:20px"></div>
+    </div>
+  </section>
+
+  <section id="reports" class="section">
+    <div class="card">
+      <h2>Analysis Reports</h2>
+      <p>Download a text report containing the dataset summary and calculated insights.</p>
+      <button class="primary" id="reportBtn">Generate & Download Report</button>
+      <div id="reportStatus" style="margin-top:18px"></div>
+    </div>
+  </section>
+
+  <footer>
+    NEXORA AI · Intelligent Decision Support System<br>
+    Local browser analytics demo. Dataset processing happens in your browser.
+  </footer>
+</main>
+</div>
+
+<script>
+"use strict";
+
+const sampleCSV = `Student,StudyHours,Attendance,Assignments,Score
+Student 1,2,65,5,48
+Student 2,3,70,6,54
+Student 3,4,72,7,59
+Student 4,5,78,8,65
+Student 5,6,80,8,70
+Student 6,7,85,9,76
+Student 7,8,88,9,82
+Student 8,4,75,7,61
+Student 9,6,82,8,72
+Student 10,9,92,10,90
+Student 11,3,68,6,51
+Student 12,8,90,10,86`;
+
+let rows = [];
+let columns = [];
+let numericColumns = [];
+let charts = {};
+
+const titles = {
+  dashboard: ["Intelligence Dashboard", "Turn your data into meaningful decisions."],
+  analysis: ["Data Analysis Studio", "Explore, understand, and visualize your data."],
+  insights: ["AI Insights", "Discover patterns using calculated statistics."],
+  prediction: ["Prediction Studio", "Explore simple numerical predictions."],
+  reports: ["Reports Center", "Export useful summaries of your dataset."]
+};
+
+function parseCSV(text) {
+  const result = Papa.parse(text.trim(), {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: h => h.trim()
+  });
+  if (result.errors.length) throw new Error("CSV parsing failed. Check your file format.");
+  const data = result.data;
+  if (!data.length || !result.meta.fields?.length) {
+    throw new Error("The CSV file is empty or has no header row.");
+  }
+  if (result.meta.fields.length > 100) throw new Error("Maximum 100 columns supported.");
+  if (data.length > 20000) throw new Error("Maximum 20,000 rows supported in this demo.");
+  return { data, fields: result.meta.fields };
+}
+
+function numericValues(col) {
+  return rows.map(r => {
+    const v = String(r[col] ?? "").trim();
+    if (v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  });
+}
+
+function mean(a) {
+  return a.length ? a.reduce((s, n) => s + n, 0) / a.length : null;
+}
+
+function median(a) {
+  if (!a.length) return null;
+  const b = [...a].sort((x,y) => x-y);
+  const m = Math.floor(b.length/2);
+  return b.length % 2 ? b[m] : (b[m-1]+b[m])/2;
+}
+
+function fmt(n) {
+  return n === null || !Number.isFinite(n) ? "N/A" : Number(n.toFixed(2)).toLocaleString();
+}
+
+function getStats(col) {
+  const all = numericValues(col);
+  const values = all.filter(v => v !== null);
+  if (!values.length) return null;
+  const avg = mean(values);
+  const variance = mean(values.map(v => (v-avg)**2));
+  return {
+    values, count: values.length,
+    missing: all.length-values.length,
+    mean: avg,
+    median: median(values),
+    min: Math.min(...values),
+    max: Math.max(...values),
+    std: Math.sqrt(variance)
+  };
+}
+
+function destroyChart(id) {
+  if (charts[id]) {
+    charts[id].destroy();
+    delete charts[id];
+  }
+}
+
+function makeChart(id, config) {
+  destroyChart(id);
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  charts[id] = new Chart(canvas, config);
+}
+
+function chartColors() {
+  return {
+    cyan: "#53e5ff",
+    purple: "#9d7bff",
+    green: "#52e0a0",
+    grid: "rgba(150,170,210,0.12)",
+    text: "#aebbd5"
+  };
+}
+
+function baseOptions() {
+  const c = chartColors();
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: c.text } }
+    },
+    scales: {
+      x: { ticks: { color: c.text }, grid: { color: c.grid } },
+      y: { ticks: { color: c.text }, grid: { color: c.grid } }
+    }
+  };
+}
+
+function initDataset(data, fields) {
+  rows = data;
+  columns = fields;
+  numericColumns = fields.filter(col => {
+    const values = numericValues(col);
+    return values.some(v => v !== null);
+  });
+
+  document.getElementById("recordsMetric").textContent = rows.length;
+  document.getElementById("featuresMetric").textContent = columns.length;
+
+  const missing = rows.reduce((sum, row) =>
+    sum + columns.filter(col => String(row[col] ?? "").trim() === "").length, 0);
+
+  document.getElementById("missingMetric").textContent = missing;
+
+  renderTable();
+  renderSelectors();
+  renderOverview();
+  renderColumnChart();
+  renderInsights();
+
+  document.getElementById("uploadStatus").textContent =
+    `Loaded ${rows.length} records and ${columns.length} columns successfully.`;
+
+  document.getElementById("analysisSummary").innerHTML =
+    `<div class="insight">Dataset loaded successfully. Click Analyze Dataset to calculate summary statistics.</div>`;
+}
+
+function renderTable() {
+  const host = document.getElementById("dataTable");
+  if (!rows.length) {
+    host.textContent = "No dataset loaded.";
+    return;
+  }
+
+  const shown = rows.slice(0, 100);
+  let html = "<table><thead><tr>";
+  columns.forEach(c => html += `<th>${escapeHTML(c)}</th>`);
+  html += "</tr></thead><tbody>";
+
+  shown.forEach(row => {
+    html += "<tr>";
+    columns.forEach(c => html += `<td>${escapeHTML(row[c] ?? "")}</td>`);
+    html += "</tr>";
+  });
+
+  html += "</tbody></table>";
+  if (rows.length > 100) {
+    html += `<p class="small">Showing 100 of ${rows.length} records.</p>`;
+  }
+  host.innerHTML = html;
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  })[ch]);
+}
+
+function renderSelectors() {
+  const selects = ["columnSelect", "xColumn", "yColumn"];
+  selects.forEach(id => {
+    const select = document.getElementById(id);
+    select.innerHTML = "";
+    numericColumns.forEach(col => {
+      const option = document.createElement("option");
+      option.value = col;
+      option.textContent = col;
+      select.appendChild(option);
+    });
+  });
+
+  if (numericColumns.length > 1) {
+    document.getElementById("xColumn").selectedIndex = 0;
+    document.getElementById("yColumn").selectedIndex = 1;
+  }
+}
+
+function renderOverview() {
+  const c = chartColors();
+  const col = numericColumns[0];
+
+  if (!col) {
+    destroyChart("overviewChart");
+    return;
+  }
+
+  const stats = getStats(col);
+  makeChart("overviewChart", {
+    type: "bar",
+    data: {
+      labels: rows.slice(0, 20).map((r,i) => String(r[columns[0]] || `Row ${i+1}`)),
+      datasets: [{
+        label: col,
+        data: rows.slice(0,20).map(r => {
+          const v = Number(r[col]);
+          return String(r[col] ?? "").trim() !== "" && Number.isFinite(v) ? v : null;
+        }),
+        backgroundColor: c.purple,
+        borderRadius: 5
+      }]
+    },
+    options: baseOptions()
+  });
+}
+
+function renderColumnChart() {
+  const col = document.getElementById("columnSelect").value;
+  if (!col) return;
+  const stats = getStats(col);
+  if (!stats) return;
+
+  makeChart("columnChart", {
+    type: "line",
+    data: {
+      labels: rows.map((r,i) => i+1).filter((n,i) =>
+        String(rows[i][col] ?? "").trim() !== ""),
+      datasets: [{
+        label: col,
+        data: rows.map(r => {
+          const v = Number(r[col]);
+          return String(r[col] ?? "").trim() !== "" && Number.isFinite(v) ? v : null;
+        }),
+        borderColor: "#53e5ff",
+        backgroundColor: "rgba(83,229,255,0.12)",
+        fill: true,
+        tension: 0.25,
+        spanGaps: true
+      }]
+    },
+    options: baseOptions()
+  });
+}
+
+function generateInsightsList() {
+  const insights = [];
+  insights.push(`The dataset contains ${rows.length} records and ${columns.length} columns.`);
+
+  if (!numericColumns.length) {
+    insights.push("No numerical columns were detected. Add numeric data to calculate statistical summaries.");
+    return insights;
+  }
+
+  numericColumns.forEach(col => {
+    const s = getStats(col);
+    if (!s) return;
+
+    insights.push(
+      `${col}: average ${fmt(s.mean)}, median ${fmt(s.median)}, minimum ${fmt(s.min)}, maximum ${fmt(s.max)}.`
+    );
+
+    if (s.missing > 0) {
+      insights.push(`${col} contains ${s.missing} missing or non-numeric values.`);
+    }
+
+    if (s.std === 0) {
+      insights.push(`${col} has no variation in its valid numerical values.`);
+    }
+  });
+
+  const duplicateCount = rows.length - new Set(rows.map(r =>
+    JSON.stringify(columns.map(c => r[c]))
+  )).size;
+
+  insights.push(`Exact duplicate rows detected: ${duplicateCount}.`);
+
+  return insights;
+}
+
+function renderInsights() {
+  const insights = generateInsightsList();
+  document.getElementById("insightsMetric").textContent = insights.length;
+
+  const html = insights.map(text =>
+    `<div class="insight">${escapeHTML(text)}</div>`
+  ).join("");
+
+  document.getElementById("dashboardInsights").innerHTML = html;
+  document.getElementById("allInsights").innerHTML = html;
+}
+
+function analyzeDataset() {
+  let html = `<p><strong>Rows:</strong> ${rows.length} &nbsp; <strong>Columns:</strong> ${columns.length}</p>`;
+  html += "<div class='table-wrap'><table><thead><tr>";
+  html += "<th>Column</th><th>Valid Values</th><th>Missing</th><th>Mean</th><th>Median</th><th>Min</th><th>Max</th><th>Std Dev</th>";
+  html += "</tr></thead><tbody>";
+
+  columns.forEach(col => {
+    const s = getStats(col);
+    const missing = rows.filter(r => String(r[col] ?? "").trim() === "").length;
+
+    html += `<tr><td>${escapeHTML(col)}</td>`;
+
+    if (s) {
+      html += `<td>${s.count}</td><td>${s.missing}</td>
+        <td>${fmt(s.mean)}</td><td>${fmt(s.median)}</td>
+        <td>${fmt(s.min)}</td><td>${fmt(s.max)}</td><td>${fmt(s.std)}</td>`;
+    } else {
+      html += `<td>0</td><td>${missing}</td><td colspan="5">No numeric statistics available</td>`;
+    }
+    html += "</tr>";
+  });
+
+  html += "</tbody></table></div>";
+  document.getElementById("analysisSummary").innerHTML = html;
+  renderInsights();
+}
+
+function linearRegression(x, y) {
+  const n = x.length;
+  if (n < 2) throw new Error("At least two valid numeric rows are required.");
+
+  const mx = mean(x), my = mean(y);
+  const denom = x.reduce((s,v) => s + (v-mx)**2, 0);
+
+  if (denom === 0) throw new Error("The input feature has no variation.");
+
+  const slope = x.reduce((s,v,i) => s + (v-mx)*(y[i]-my), 0) / denom;
+  const intercept = my - slope*mx;
+
+  const predicted = x.map(v => slope*v + intercept);
+  const ssRes = y.reduce((s,v,i) => s + (v-predicted[i])**2, 0);
+  const ssTot = y.reduce((s,v) => s + (v-my)**2, 0);
+  const r2 = ssTot === 0 ? null : 1 - ssRes/ssTot;
+
+  return { slope, intercept, r2, n };
+}
+
+function runPrediction() {
+  const xCol = document.getElementById("xColumn").value;
+  const yCol = document.getElementById("yColumn").value;
+  const value = Number(document.getElementById("predictValue").value);
+  const host = document.getElementById("predictionResult");
+
+  if (!xCol || !yCol || xCol === yCol) {
+    host.innerHTML = `<div class="insight">Select two different numerical columns.</div>`;
+    return;
+  }
+
+  if (document.getElementById("predictValue").value.trim() === "" || !Number.isFinite(value)) {
+    host.innerHTML = `<div class="insight">Enter a valid numeric input value.</div>`;
+    return;
+  }
+
+  const pairs = rows.map(r => ({
+    x: String(r[xCol] ?? "").trim() === "" ? null : Number(r[xCol]),
+    y: String(r[yCol] ?? "").trim() === "" ? null : Number(r[yCol])
+  })).filter(p => p.x !== null && p.y !== null &&
+    Number.isFinite(p.x) && Number.isFinite(p.y));
+
+  try {
+    const model = linearRegression(pairs.map(p=>p.x), pairs.map(p=>p.y));
+    const prediction = model.slope*value + model.intercept;
+
+    host.innerHTML = `
+      <div class="insight">
+        <h2>Prediction Result</h2>
+        Estimated ${escapeHTML(yCol)}: <strong>${fmt(prediction)}</strong><br>
+        Input feature: ${escapeHTML(xCol)} = ${fmt(value)}<br>
+        Model: simple linear regression<br>
+        Valid training pairs: ${model.n}<br>
+        R² on the same fitted data: ${model.r2 === null ? "N/A" : fmt(model.r2)}
+        <p class="small">This is an exploratory demo. The displayed R² is calculated on the same data used to fit the line, not on a held-out test set. Results may not generalize.</p>
+      </div>`;
+  } catch (e) {
+    host.innerHTML = `<div class="insight">${escapeHTML(e.message)}</div>`;
+  }
+}
+
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function generateReport() {
+  const report = [
+    "NEXORA AI - DATA ANALYSIS REPORT",
+    "================================",
+    `Generated: ${new Date().toLocaleString()}`,
+    `Records: ${rows.length}`,
+    `Columns: ${columns.length}`,
+    "",
+    "COLUMN STATISTICS",
+    "-----------------",
+    ...columns.map(col => {
+      const s = getStats(col);
+      if (!s) return `${col}: No numerical statistics available.`;
+      return `${col}: valid=${s.count}, missing=${s.missing}, mean=${fmt(s.mean)}, median=${fmt(s.median)}, min=${fmt(s.min)}, max=${fmt(s.max)}, std=${fmt(s.std)}`;
+    }),
+    "",
+    "INSIGHTS",
+    "--------",
+    ...generateInsightsList(),
+    "",
+    "LIMITATIONS",
+    "-----------",
+    "Insights are calculated from the current dataset.",
+    "Correlation does not prove causation.",
+    "Regression predictions are estimates, not guarantees.",
+    "This demo does not connect to an external AI model."
+  ].join("\n");
+
+  downloadFile("nexora-analysis-report.txt", report, "text/plain;charset=utf-8");
+  document.getElementById("reportStatus").innerHTML =
+    `<div class="insight">Report generated. Check your device's downloads.</div>`;
+}
+
+function exportCSV() {
+  if (!rows.length) return;
+  downloadFile("nexora-dataset.csv", Papa.unparse(rows), "text/csv;charset=utf-8");
+}
+
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.page).classList.add("active");
+
+    document.getElementById("pageTitle").textContent = titles[btn.dataset.page][0];
+    document.getElementById("pageSubtitle").textContent = titles[btn.dataset.page][1];
+
+    Object.values(charts).forEach(chart => chart.resize());
+  });
+});
+
+document.getElementById("csvFile").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const status = document.getElementById("uploadStatus");
+
+  try {
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      throw new Error("Please choose a CSV file.");
+    }
+    if (file.size > 5*1024*1024) {
+      throw new Error("File exceeds the 5 MB demo limit.");
+    }
+    const text = await file.text();
+    const parsed = parseCSV(text);
+    if (!parsed.fields.length) throw new Error("No columns found.");
+    initDataset(parsed.data, parsed.fields);
+  } catch (e) {
+    status.textContent = e.message || "Could not read the file.";
+  }
+});
+
+document.getElementById("sampleBtn").addEventListener("click", () => {
+  const parsed = parseCSV(sampleCSV);
+  initDataset(parsed.data, parsed.fields);
+});
+
+document.getElementById("analyzeBtn").addEventListener("click", analyzeDataset);
+document.getElementById("generateInsightsBtn").addEventListener("click", renderInsights);
+document.getElementById("columnSelect").addEventListener("change", renderColumnChart);
+document.getElementById("predictBtn").addEventListener("click", runPrediction);
+document.getElementById("reportBtn").addEventListener("click", generateReport);
+document.getElementById("downloadCsvBtn").addEventListener("click", exportCSV);
+
+initDataset(parseCSV(sampleCSV).data, parseCSV(sampleCSV).fields);
+</script>
+</body>
+</html>
